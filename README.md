@@ -17,6 +17,7 @@ then leave it floating on your wallpaper like a sticky note.
 
 - **Images** — paste with `Ctrl+V` (screenshots, browser images, copied files) or drag & drop files. Resize from the corner handle or with the mouse wheel.
 - **Notes** — double-click empty space. Bold, italic, underline, strikethrough, text color, highlight, per-selection font size, fonts, bullets and **checklists**.
+- **Links** — paste or drop a web address on the board to get a link card with the page title (double-click opens it). In notes, addresses become links as you type, and `Ctrl+K` links the selected text.
 - **Text-only notes** — no paper, just text with a soft outline that stays readable on any wallpaper.
 - **Pen** — draw and highlight over anything, with undo.
 - **Lives on your desktop** — background opacity slider (fully transparent works), always on top / normal / behind other windows, lock position & size, maximize, fit window to content.
@@ -38,7 +39,7 @@ No installer — just run the exe. The builds are not code-signed, so Windows Sm
 
 | Action | How |
 | --- | --- |
-| Paste image / text | `Ctrl+V` (text becomes a note) |
+| Paste image / text | `Ctrl+V` (text becomes a note, a web address becomes a link card) |
 | New note | Double-click empty space, or the **+** button |
 | Move | Drag an image, or a note's top strip |
 | Resize | Corner handle (`Shift` = free aspect ratio) or mouse wheel over an image |
@@ -46,6 +47,7 @@ No installer — just run the exe. The builds are not code-signed, so Windows Sm
 | Note formatting | `Ctrl+B` `Ctrl+I` `Ctrl+U`, strikethrough `Ctrl+Shift+X`, bullets `Ctrl+Shift+L` |
 | Checklist | `Ctrl+Enter` adds a box or toggles it; clicking ☐ checks it |
 | Note text size | `Ctrl+Wheel` |
+| Links in notes | Typed addresses link automatically; `Ctrl+K` links the selection; `Ctrl+click` opens |
 | Pen | `P` (`H` highlighter, `E` eraser, `Ctrl+Z` undo, `Esc` done) |
 | Maximize | `F11` or double-click the title bar |
 | Settings | Right-click the board |
