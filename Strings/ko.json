@@ -89,5 +89,13 @@
   "fmt.bullets": "글머리 기호 (Ctrl+Shift+L)",
   "fmt.checklist": "체크리스트 (Ctrl+Enter: 체크)",
   "fmt.font": "글꼴 (선택한 글자, 없으면 메모 전체)",
-  "font.all": "모든 글꼴 ({0})"
+  "font.all": "모든 글꼴 ({0})",
+  "fmt.link": "링크 (Ctrl+K)",
+  "link.prompt": "링크 주소 (비우면 링크 제거)",
+  "link.ctrlClick": "Ctrl+클릭하여 열기",
+  "link.open": "열기",
+  "link.copy": "주소 복사",
+  "link.rename": "제목 바꾸기",
+  "link.titlePrompt": "제목 (비우면 주소 표시)",
+  "link.doubleClick": "더블클릭하여 열기"
 }

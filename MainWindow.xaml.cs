@@ -176,8 +176,23 @@ public partial class MainWindow : Window
                 text = data.GetData(DataFormats.UnicodeText) as string;
         }
         catch { }
-        if (!string.IsNullOrWhiteSpace(text))
+        if (Links.AsSingleUrl(text) is { } url)
+            AddLink(at, url);
+        else if (!string.IsNullOrWhiteSpace(text))
             AddNote(at, text.Trim());
+    }
+
+    void AddLink(Point? at, Uri url)
+    {
+        var item = new BoardItem { Type = ItemTypes.Link, Url = url.AbsoluteUri, W = 240, H = 58, Z = NextZ() };
+        var p = at ?? SpawnPoint();
+        item.X = p.X - (at == null ? item.W / 2 : 0);
+        item.Y = p.Y - (at == null ? item.H / 2 : 0);
+        FitInside(item);
+        _data.Items.Add(item);
+        if (AddView(item) is { } view) Select(view);
+        UpdateHint();
+        ScheduleSave();
     }
 
     void AddImage(ClipImage src, Point center)
@@ -452,6 +467,11 @@ public partial class MainWindow : Window
         else if (ctrl && e.Key == Key.C && _selected?.Bitmap != null)
         {
             CopyImage(_selected);
+            e.Handled = true;
+        }
+        else if (ctrl && e.Key == Key.C && _selected?.IsLink == true)
+        {
+            _selected.CopyLink();
             e.Handled = true;
         }
     }

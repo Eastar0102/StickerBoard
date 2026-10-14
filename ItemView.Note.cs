@@ -57,6 +57,9 @@ public sealed partial class ItemView
     const double MaxFontSize = 96;
 
     TextBox? _sizeBox;
+    ToolTip? _linkTip;
+    Border? _linkButton;
+    bool _linkifyPending;
     Border? _noteBody;
     Border? _noteGrip;
     Canvas? _formatHost;
@@ -92,6 +95,7 @@ public sealed partial class ItemView
             IsInactiveSelectionHighlightEnabled = true,
             Document = LoadDocument(),
         };
+        Links.Linkify(Editor.Document.Blocks.ToList());
         Editor.Resources.Add(typeof(Paragraph), new Style(typeof(Paragraph))
         {
             Setters = { new Setter(Block.MarginProperty, new Thickness(0)) },
@@ -112,6 +116,14 @@ public sealed partial class ItemView
         Editor.PreviewKeyDown += OnEditorKeyDown;
         Editor.SelectionChanged += (_, _) => UpdateSizeBox();
         DataObject.AddPastingHandler(Editor, OnEditorPasting);
+        // A space or tab after an address turns it into a link (Enter is handled in OnEditorKeyDown)
+        Editor.AddHandler(TextCompositionManager.TextInputEvent, new TextCompositionEventHandler((_, e) =>
+        {
+            if (e.Text is " " or "\t") ScheduleLinkify(all: false);
+        }), handledEventsToo: true);
+        Editor.LostKeyboardFocus += (_, _) => ScheduleLinkify(all: true);
+        Editor.MouseMove += OnEditorMouseMove;
+        Editor.MouseLeave += (_, _) => { if (_linkTip != null) _linkTip.IsOpen = false; };
 
         var dock = new DockPanel();
         dock.Children.Add(_noteGrip);
@@ -205,6 +217,12 @@ public sealed partial class ItemView
         }
         Editor.Document.Foreground = new SolidColorBrush(fg);
         Editor.CaretBrush = new SolidColorBrush(fg);
+        // Implicit style, so link colors follow the note color and are not saved into the document
+        var linkColor = fg.R > 128 ? Color.FromRgb(0x8A, 0xB4, 0xF8) : Color.FromRgb(0x1A, 0x5F, 0xB4);
+        Editor.Resources[typeof(Hyperlink)] = new Style(typeof(Hyperlink))
+        {
+            Setters = { new Setter(TextElement.ForegroundProperty, new SolidColorBrush(linkColor)) },
+        };
         UpdateNoteChrome();
     }
 
@@ -304,6 +322,8 @@ public sealed partial class ItemView
         panel.Children.Add(FormatButton(Glyph(""), L.T("fmt.bullets"),
             () => EditingCommands.ToggleBullets.Execute(null, Editor)));
         panel.Children.Add(FormatButton(BarLabel(CheckOn, font: "Segoe UI Symbol"), L.T("fmt.checklist"), ToggleChecklist));
+        _linkButton = FormatButton(Glyph(""), L.T("fmt.link"), () => EditLink(), opensMenu: true);
+        panel.Children.Add(_linkButton);
         panel.Children.Add(BarSeparator());
 
         Border? fontButton = null;
@@ -630,11 +650,128 @@ public sealed partial class ItemView
             var text = e.DataObject.GetData(DataFormats.UnicodeText) as string ?? "";
             e.DataObject = new DataObject(DataFormats.UnicodeText, text);
             e.FormatToApply = DataFormats.UnicodeText;
+            ScheduleLinkify(all: true);
         }
         else
         {
             e.CancelCommand();
         }
+    }
+
+    // ---------- Links ----------
+
+    /// <summary>Linkify after the editor has applied the edit. Not on every change, so Ctrl+Z can undo a linkify.</summary>
+    void ScheduleLinkify(bool all)
+    {
+        if (_linkifyPending) return;
+        _linkifyPending = true;
+        Dispatcher.BeginInvoke(() =>
+        {
+            _linkifyPending = false;
+            if (Editor == null) return;
+            var caret = Editor.CaretPosition;
+            var blocks = new List<Block>();
+            if (all) blocks.AddRange(Editor.Document.Blocks);
+            else if (caret.Paragraph is Paragraph p)
+            {
+                blocks.Add(p);
+                if (p.PreviousBlock is Paragraph prev) blocks.Add(prev);
+            }
+            Editor.BeginChange();
+            try { Links.Linkify(blocks); }
+            finally { Editor.EndChange(); }
+        }, System.Windows.Threading.DispatcherPriority.Background);
+    }
+
+    void OnEditorMouseMove(object sender, MouseEventArgs e)
+    {
+        var pos = Editor!.GetPositionFromPoint(e.GetPosition(Editor), false);
+        if (Links.LinkAt(pos)?.NavigateUri is not Uri uri)
+        {
+            if (_linkTip != null) _linkTip.IsOpen = false;
+            return;
+        }
+        _linkTip ??= new ToolTip { PlacementTarget = Editor, Placement = PlacementMode.Mouse };
+        var text = uri.AbsoluteUri + "\n" + L.T("link.ctrlClick");
+        if (_linkTip.IsOpen && Equals(_linkTip.Content, text)) return;
+        _linkTip.Content = text;
+        _linkTip.IsOpen = false;
+        _linkTip.IsOpen = true;
+    }
+
+    /// <summary>Link the selected text, edit the link at the caret, or insert an address (Ctrl+K)</summary>
+    void EditLink()
+    {
+        if (Editor == null) return;
+        var sel = Editor.Selection;
+        var start = sel.Start;
+        var end = sel.End;
+        var existing = Links.LinkAt(start) is { } a && a == Links.LinkAt(end) ? a : null;
+
+        string initial = existing?.NavigateUri?.AbsoluteUri ?? "";
+        if (initial == "")
+        {
+            try { initial = Links.AsSingleUrl(Clipboard.GetText())?.AbsoluteUri ?? ""; }
+            catch { }
+        }
+        if (initial == "") initial = Links.AsSingleUrl(sel.Text)?.AbsoluteUri ?? "https://";
+
+        var target = _formatHost?.Visibility == Visibility.Visible ? (FrameworkElement)_linkButton! : Editor;
+        Links.Prompt(target, L.T("link.prompt"), initial, text =>
+        {
+            bool remove = string.IsNullOrWhiteSpace(text) || text.Trim() == "https://";
+            var uri = remove ? null : Links.Normalize(text);
+            if (!remove && uri == null) return false;
+
+            Editor.BeginChange();
+            try
+            {
+                if (existing != null)
+                {
+                    if (uri == null) Links.Unwrap(existing);
+                    else existing.NavigateUri = uri;
+                }
+                else if (start.CompareTo(end) != 0 && start.Paragraph is Paragraph para)
+                {
+                    // A link cannot span paragraphs; keep it to the first one
+                    if (end.Paragraph != para) end = para.ContentEnd;
+                    // Unwrapping moves text around, so remember the selection as character offsets
+                    int from = Links.CharOffset(para, start), to = Links.CharOffset(para, end);
+                    var paraText = Links.CharText(para);
+                    while (to > from && char.IsWhiteSpace(paraText[to - 1])) to--; // a double-clicked word includes its trailing space
+                    // Drop links overlapping the selection first: links cannot be nested
+                    foreach (var link in LinksIn(start, end)) Links.Unwrap(link);
+                    if (uri != null && to > from)
+                        Links.MakeLink(Links.AtCharOffset(para, from), Links.AtCharOffset(para, to), uri);
+                }
+                else if (uri != null)
+                {
+                    var link = new Hyperlink(new Run(uri.Scheme == "mailto" ? Links.Display(uri) : uri.AbsoluteUri), start)
+                        { NavigateUri = uri };
+                    Editor.CaretPosition = link.ElementEnd;
+                }
+            }
+            catch (Exception ex) { App.Log(ex); }
+            finally { Editor.EndChange(); }
+            return true;
+        }, () => Editor.Focus());
+    }
+
+    /// <summary>Links sharing at least one character with the range (merely touching it doesn't count)</summary>
+    static List<Hyperlink> LinksIn(TextPointer start, TextPointer end)
+    {
+        var result = new List<Hyperlink>();
+        void Add(Hyperlink? h)
+        {
+            if (h != null && !result.Contains(h)
+                && h.ContentStart.CompareTo(end) < 0 && h.ContentEnd.CompareTo(start) > 0)
+                result.Add(h);
+        }
+        for (var p = start; p != null && p.CompareTo(end) < 0; p = p.GetNextContextPosition(LogicalDirection.Forward))
+            Add(p.GetAdjacentElement(LogicalDirection.Forward) as Hyperlink);
+        Add(Links.LinkAt(start));
+        Add(Links.LinkAt(end));
+        return result;
     }
 
     // ---------- Checklists ----------
@@ -705,8 +842,15 @@ public sealed partial class ItemView
 
     void OnEditorMouseDown(object sender, MouseButtonEventArgs e)
     {
-        // Clicking the check box character toggles it
         var pos = Editor!.GetPositionFromPoint(e.GetPosition(Editor), false);
+        // Ctrl+click opens a link
+        if (Keyboard.Modifiers == ModifierKeys.Control && Links.LinkAt(pos)?.NavigateUri is Uri uri)
+        {
+            Links.Open(uri);
+            e.Handled = true;
+            return;
+        }
+        // Clicking the check box character toggles it
         if (pos?.Paragraph is not Paragraph p) return;
         var (mark, _) = CheckMark(p);
         if (mark == null || pos.CompareTo(mark.Start) < 0 || pos.CompareTo(mark.End) > 0) return;
@@ -723,9 +867,16 @@ public sealed partial class ItemView
             e.Handled = true;
             return;
         }
+        if (e.Key == Key.K && mods == ModifierKeys.Control)
+        {
+            EditLink();
+            e.Handled = true;
+            return;
+        }
         // Enter pressed during IME composition (e.g. Korean) arrives as ImeProcessed
         bool composing = e.Key == Key.ImeProcessed;
         if ((composing ? e.ImeProcessedKey : e.Key) != Key.Enter) return;
+        ScheduleLinkify(all: false);
         var p = Editor!.CaretPosition.Paragraph;
         if (p == null) return;
         var (mark, _) = CheckMark(p);

@@ -89,5 +89,13 @@
   "fmt.bullets": "箇条書き (Ctrl+Shift+L)",
   "fmt.checklist": "チェックリスト（Ctrl+Enter：チェック）",
   "fmt.font": "フォント（選択範囲、なければメモ全体）",
-  "font.all": "すべてのフォント ({0})"
+  "font.all": "すべてのフォント ({0})",
+  "fmt.link": "リンク (Ctrl+K)",
+  "link.prompt": "リンク先のアドレス (空にするとリンクを解除)",
+  "link.ctrlClick": "Ctrl+クリックで開く",
+  "link.open": "開く",
+  "link.copy": "アドレスをコピー",
+  "link.rename": "タイトルを編集",
+  "link.titlePrompt": "タイトル (空にするとアドレスを表示)",
+  "link.doubleClick": "ダブルクリックで開く"
 }

@@ -89,5 +89,13 @@
   "fmt.bullets": "项目符号 (Ctrl+Shift+L)",
   "fmt.checklist": "清单（Ctrl+Enter：勾选）",
   "fmt.font": "字体（选中文字，未选中则整个便签）",
-  "font.all": "所有字体 ({0})"
+  "font.all": "所有字体 ({0})",
+  "fmt.link": "链接 (Ctrl+K)",
+  "link.prompt": "链接地址（留空则删除链接）",
+  "link.ctrlClick": "Ctrl+单击打开",
+  "link.open": "打开",
+  "link.copy": "复制地址",
+  "link.rename": "编辑标题",
+  "link.titlePrompt": "标题（留空则显示地址）",
+  "link.doubleClick": "双击打开"
 }

@@ -12,6 +12,7 @@ public static class ItemTypes
 {
     public const string Image = "image";
     public const string Note = "note";
+    public const string Link = "link";
 }
 
 public static class Modes
@@ -31,7 +32,9 @@ public class BoardItem
     public double H { get; set; }
     public int Z { get; set; }
     public string? Image { get; set; }
+    /// <summary>Note text, or a link's title (null = not fetched yet, empty = show the address)</summary>
     public string? Text { get; set; }
+    public string? Url { get; set; }
     /// <summary>Rich note content (FlowDocument XAML). If missing, Text is used as plain text.</summary>
     public string? Rich { get; set; }
     public string? Font { get; set; }

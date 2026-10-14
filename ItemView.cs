@@ -7,7 +7,7 @@ using System.Windows.Media.Imaging;
 
 namespace StickerBoard;
 
-/// <summary>One image or note on the board (note-specific code is in ItemView.Note.cs)</summary>
+/// <summary>One image, note or link on the board (see ItemView.Note.cs and ItemView.Link.cs)</summary>
 public sealed partial class ItemView : Grid
 {
     const double MinSize = 24;
@@ -23,6 +23,8 @@ public sealed partial class ItemView : Grid
     public BoardItem Item { get; }
     public BitmapSource? Bitmap { get; }
     public bool IsImage => Item.Type == ItemTypes.Image;
+    public bool IsLink => Item.Type == ItemTypes.Link;
+    bool IsNote => Item.Type == ItemTypes.Note;
 
     public ItemView(MainWindow owner, BoardItem item, BitmapSource? bitmap)
     {
@@ -31,6 +33,7 @@ public sealed partial class ItemView : Grid
         Bitmap = bitmap;
 
         if (IsImage) BuildImage();
+        else if (IsLink) BuildLink();
         else BuildNote();
 
         _outline = new Border
@@ -50,7 +53,7 @@ public sealed partial class ItemView : Grid
         PreviewMouseLeftButtonDown += (_, _) => _owner.Select(this);
         MouseEnter += (_, _) => UpdateChrome();
         MouseLeave += (_, _) => UpdateChrome();
-        ContextMenu = IsImage ? BuildImageMenu() : BuildNoteMenu();
+        ContextMenu = IsImage ? BuildImageMenu() : IsLink ? BuildLinkMenu() : BuildNoteMenu();
 
         ApplyLayout();
         UpdateChrome();
@@ -63,7 +66,7 @@ public sealed partial class ItemView : Grid
         Width = Item.W;
         Height = Item.H;
         Panel.SetZIndex(this, Item.Z);
-        if (!IsImage) UpdateNoteChrome();
+        if (IsNote) UpdateNoteChrome();
     }
 
     public void SetSelected(bool selected)
@@ -76,7 +79,7 @@ public sealed partial class ItemView : Grid
     {
         _outline.Visibility = _selected ? Visibility.Visible : Visibility.Collapsed;
         _handle.Visibility = _selected || _dragging || IsMouseOver ? Visibility.Visible : Visibility.Hidden;
-        if (!IsImage) UpdateNoteChrome();
+        if (IsNote) UpdateNoteChrome();
     }
 
     // ---------- Construction ----------

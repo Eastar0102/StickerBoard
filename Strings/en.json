@@ -89,5 +89,13 @@
   "fmt.bullets": "Bullets (Ctrl+Shift+L)",
   "fmt.checklist": "Checklist (Ctrl+Enter: check)",
   "fmt.font": "Font (selection, or whole note)",
-  "font.all": "All fonts ({0})"
+  "font.all": "All fonts ({0})",
+  "fmt.link": "Link (Ctrl+K)",
+  "link.prompt": "Link address (leave empty to remove the link)",
+  "link.ctrlClick": "Ctrl+click to open",
+  "link.open": "Open",
+  "link.copy": "Copy address",
+  "link.rename": "Edit title",
+  "link.titlePrompt": "Title (leave empty to show the address)",
+  "link.doubleClick": "Double-click to open"
 }

@@ -89,5 +89,13 @@
   "fmt.bullets": "項目符號 (Ctrl+Shift+L)",
   "fmt.checklist": "核取清單（Ctrl+Enter：勾選）",
   "fmt.font": "字型（選取的文字，未選取則整張便條）",
-  "font.all": "所有字型 ({0})"
+  "font.all": "所有字型 ({0})",
+  "fmt.link": "連結 (Ctrl+K)",
+  "link.prompt": "連結網址（留空則移除連結）",
+  "link.ctrlClick": "Ctrl+按一下以開啟",
+  "link.open": "開啟",
+  "link.copy": "複製網址",
+  "link.rename": "編輯標題",
+  "link.titlePrompt": "標題（留空則顯示網址）",
+  "link.doubleClick": "按兩下以開啟"
 }

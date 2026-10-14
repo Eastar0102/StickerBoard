@@ -11,7 +11,7 @@
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <ApplicationIcon>Assets\app.ico</ApplicationIcon>
 
-    <Version>1.0.1</Version>
+    <Version>1.0.2</Version>
     <Product>StickerBoard</Product>
     <Authors>Eastar0102</Authors>
     <Copyright>Copyright (c) 2026 Eastar0102</Copyright>
