@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
@@ -51,6 +52,11 @@ public sealed partial class ItemView
 
     static List<(string Name, FontFamily Family)>? _fontCache;
 
+    static readonly double[] PresetSizes = { 8, 9, 10, 11, 12, 14, 16, 18, 20, 24, 28, 32, 36, 48, 60, 72 };
+    const double MinFontSize = 6;
+    const double MaxFontSize = 96;
+
+    TextBox? _sizeBox;
     Border? _noteBody;
     Border? _noteGrip;
     Canvas? _formatHost;
@@ -104,6 +110,7 @@ public sealed partial class ItemView
         Editor.PreviewMouseWheel += OnNoteWheel;
         Editor.PreviewMouseLeftButtonDown += OnEditorMouseDown;
         Editor.PreviewKeyDown += OnEditorKeyDown;
+        Editor.SelectionChanged += (_, _) => UpdateSizeBox();
         DataObject.AddPastingHandler(Editor, OnEditorPasting);
 
         var dock = new DockPanel();
@@ -209,6 +216,7 @@ public sealed partial class ItemView
 
         _formatHost.Visibility = _selected ? Visibility.Visible : Visibility.Collapsed;
         if (!_selected) return;
+        UpdateSizeBox();
         _formatBar.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
         var bar = _formatBar.DesiredSize;
         bool below = Item.Y < bar.Height + 6;
@@ -290,6 +298,7 @@ public sealed partial class ItemView
 
         panel.Children.Add(FormatButton(Glyph(""), L.T("fmt.bigger"), () => ChangeSelectionFontSize(+2)));
         panel.Children.Add(FormatButton(Glyph(""), L.T("fmt.smaller"), () => ChangeSelectionFontSize(-2)));
+        panel.Children.Add(BuildSizeBox());
         panel.Children.Add(BarSeparator());
 
         panel.Children.Add(FormatButton(Glyph(""), L.T("fmt.bullets"),
@@ -480,23 +489,130 @@ public sealed partial class ItemView
         }
     }
 
-    void ChangeSelectionFontSize(double delta)
+    /// <summary>Size of the selected text; the whole note's size when nothing is selected. Null if the selection is mixed.</summary>
+    double? CurrentFontSize()
     {
         var sel = Editor!.Selection;
-        if (sel.IsEmpty)
-        {
-            ChangeFontSize(delta);
-            return;
-        }
-        double current = sel.GetPropertyValue(TextElement.FontSizeProperty) is double d ? d : Item.FontSize;
-        sel.ApplyPropertyValue(TextElement.FontSizeProperty, Math.Clamp(current + delta, 6, 96));
+        if (sel.IsEmpty) return Item.FontSize;
+        return sel.GetPropertyValue(TextElement.FontSizeProperty) is double d ? d : null;
     }
 
-    void ChangeFontSize(double delta)
+    void ChangeSelectionFontSize(double delta) => SetFontSize((CurrentFontSize() ?? Item.FontSize) + delta);
+
+    /// <summary>Apply a size to the selected text, or to the whole note when nothing is selected</summary>
+    void SetFontSize(double size)
     {
-        Item.FontSize = Math.Clamp(Item.FontSize + delta, 8, 72);
+        size = Math.Round(Math.Clamp(size, MinFontSize, MaxFontSize), 1);
+        var sel = Editor!.Selection;
+        if (sel.IsEmpty) SetNoteFontSize(size);
+        else sel.ApplyPropertyValue(TextElement.FontSizeProperty, size);
+        UpdateSizeBox(force: true);
+    }
+
+    void ChangeFontSize(double delta) => SetNoteFontSize(Item.FontSize + delta);
+
+    void SetNoteFontSize(double size)
+    {
+        Item.FontSize = Math.Round(Math.Clamp(size, MinFontSize, MaxFontSize), 1);
         if (Editor != null) Editor.Document.FontSize = Item.FontSize;
         _owner.ScheduleSave();
+        UpdateSizeBox(force: true);
+    }
+
+    // ---------- Font size box ----------
+
+    FrameworkElement BuildSizeBox()
+    {
+        var white = new SolidColorBrush(Color.FromArgb(0xE6, 0xFF, 0xFF, 0xFF));
+        _sizeBox = new TextBox
+        {
+            Width = 32, Height = 20, Margin = new Thickness(3, 0, 0, 0), MaxLength = 4,
+            FontSize = 12, TextAlignment = TextAlignment.Center,
+            VerticalContentAlignment = VerticalAlignment.Center, Padding = new Thickness(0),
+            BorderThickness = new Thickness(0),
+            Background = new SolidColorBrush(Color.FromArgb(0x30, 0xFF, 0xFF, 0xFF)),
+            Foreground = white, CaretBrush = white, SelectionBrush = new SolidColorBrush(Color.FromRgb(0x4C, 0x9A, 0xFF)),
+            ToolTip = L.T("fmt.fontSize"),
+        };
+        _sizeBox.PreviewMouseLeftButtonDown += (_, e) =>
+        {
+            // First click focuses and selects the number so it can be typed over
+            if (_sizeBox.IsKeyboardFocusWithin) return;
+            _sizeBox.Focus();
+            e.Handled = true;
+        };
+        _sizeBox.GotKeyboardFocus += (_, _) => _sizeBox.SelectAll();
+        _sizeBox.LostKeyboardFocus += (_, _) => ApplySizeBox();
+        _sizeBox.PreviewKeyDown += (_, e) =>
+        {
+            switch (e.Key)
+            {
+                case Key.Enter:
+                    ApplySizeBox();
+                    Editor?.Focus();
+                    break;
+                case Key.Escape:
+                    UpdateSizeBox(force: true);
+                    Editor?.Focus();
+                    break;
+                case Key.Up:
+                case Key.Down:
+                    SetFontSize((CurrentFontSize() ?? Item.FontSize) + (e.Key == Key.Up ? 1 : -1));
+                    _sizeBox.SelectAll();
+                    break;
+                default:
+                    return;
+            }
+            e.Handled = true;
+        };
+        _sizeBox.PreviewMouseWheel += (_, e) =>
+        {
+            SetFontSize((CurrentFontSize() ?? Item.FontSize) + (e.Delta > 0 ? 1 : -1));
+            e.Handled = true;
+        };
+
+        var panel = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
+        panel.Children.Add(_sizeBox);
+        Border? presets = null;
+        presets = FormatButton(Glyph(""), L.T("fmt.fontSize"), () => ShowMenu(presets!, SizeMenu()), opensMenu: true);
+        presets.Width = 18;
+        ((TextBlock)presets.Child).FontSize = 9;
+        panel.Children.Add(presets);
+        return panel;
+    }
+
+    ContextMenu SizeMenu()
+    {
+        var m = new ContextMenu();
+        var current = CurrentFontSize();
+        foreach (var size in PresetSizes)
+            m.Items.Add(MainWindow.MenuItemOf(size.ToString(CultureInfo.InvariantCulture), () => SetFontSize(size),
+                isChecked: current is double c && Math.Abs(c - size) < 0.05));
+        return m;
+    }
+
+    void ApplySizeBox()
+    {
+        if (_sizeBox == null || Editor == null) return;
+        var text = _sizeBox.Text.Trim().Replace(',', '.');
+        if (double.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out var size) && size > 0)
+        {
+            if (CurrentFontSize() is not double current || Math.Abs(current - size) > 0.05)
+                SetFontSize(size);
+            else
+                UpdateSizeBox(force: true);
+        }
+        else
+        {
+            UpdateSizeBox(force: true); // not a number: show the real size again
+        }
+    }
+
+    void UpdateSizeBox(bool force = false)
+    {
+        if (_sizeBox == null || Editor == null) return;
+        if (!force && _sizeBox.IsKeyboardFocusWithin) return; // don't overwrite what the user is typing
+        _sizeBox.Text = CurrentFontSize() is double size ? size.ToString("0.#", CultureInfo.InvariantCulture) : "";
     }
 
     void OnNoteWheel(object sender, MouseWheelEventArgs e)

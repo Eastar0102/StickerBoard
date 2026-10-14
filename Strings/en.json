@@ -85,6 +85,7 @@
   "fmt.highlight": "Highlight",
   "fmt.bigger": "Larger text (selection, or whole note)",
   "fmt.smaller": "Smaller text (selection, or whole note)",
+  "fmt.fontSize": "Font size (selection, or whole note)",
   "fmt.bullets": "Bullets (Ctrl+Shift+L)",
   "fmt.checklist": "Checklist (Ctrl+Enter: check)",
   "fmt.font": "Font (selection, or whole note)",

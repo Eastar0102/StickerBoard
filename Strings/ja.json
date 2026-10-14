@@ -85,6 +85,7 @@
   "fmt.highlight": "蛍光ペン",
   "fmt.bigger": "文字を大きく（選択範囲、なければメモ全体）",
   "fmt.smaller": "文字を小さく（選択範囲、なければメモ全体）",
+  "fmt.fontSize": "文字サイズ（選択範囲、なければメモ全体）",
   "fmt.bullets": "箇条書き (Ctrl+Shift+L)",
   "fmt.checklist": "チェックリスト（Ctrl+Enter：チェック）",
   "fmt.font": "フォント（選択範囲、なければメモ全体）",

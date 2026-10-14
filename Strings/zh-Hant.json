@@ -85,6 +85,7 @@
   "fmt.highlight": "醒目提示",
   "fmt.bigger": "放大文字（選取的文字，未選取則整張便條）",
   "fmt.smaller": "縮小文字（選取的文字，未選取則整張便條）",
+  "fmt.fontSize": "字級（選取的文字，未選取則整張便條）",
   "fmt.bullets": "項目符號 (Ctrl+Shift+L)",
   "fmt.checklist": "核取清單（Ctrl+Enter：勾選）",
   "fmt.font": "字型（選取的文字，未選取則整張便條）",

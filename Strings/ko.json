@@ -85,6 +85,7 @@
   "fmt.highlight": "형광펜",
   "fmt.bigger": "글자 크게 (선택한 글자, 없으면 메모 전체)",
   "fmt.smaller": "글자 작게 (선택한 글자, 없으면 메모 전체)",
+  "fmt.fontSize": "글자 크기 (선택한 글자, 없으면 메모 전체)",
   "fmt.bullets": "글머리 기호 (Ctrl+Shift+L)",
   "fmt.checklist": "체크리스트 (Ctrl+Enter: 체크)",
   "fmt.font": "글꼴 (선택한 글자, 없으면 메모 전체)",

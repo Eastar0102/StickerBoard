@@ -85,6 +85,7 @@
   "fmt.highlight": "突出显示",
   "fmt.bigger": "放大文字（选中文字，未选中则整个便签）",
   "fmt.smaller": "缩小文字（选中文字，未选中则整个便签）",
+  "fmt.fontSize": "字号（选中文字，未选中则整个便签）",
   "fmt.bullets": "项目符号 (Ctrl+Shift+L)",
   "fmt.checklist": "清单（Ctrl+Enter：勾选）",
   "fmt.font": "字体（选中文字，未选中则整个便签）",
