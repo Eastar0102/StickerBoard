@@ -1,0 +1,27 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <AssemblyName>StickerBoard</AssemblyName>
+    <RootNamespace>StickerBoard</RootNamespace>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <ApplicationIcon>Assets\app.ico</ApplicationIcon>
+
+    <Version>1.0.0</Version>
+    <Product>StickerBoard</Product>
+    <Authors>Eastar0102</Authors>
+    <Copyright>Copyright (c) 2026 Eastar0102</Copyright>
+    <Description>A lightweight desktop board for images, notes and doodles.</Description>
+    <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Resource Include="Assets\app.ico" />
+    <EmbeddedResource Include="Strings\*.json" LogicalName="StickerBoard.Strings.%(Filename)%(Extension)" WithCulture="false" />
+  </ItemGroup>
+
+</Project>
