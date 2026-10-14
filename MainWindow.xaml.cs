@@ -288,6 +288,9 @@ public partial class MainWindow : Window
         if (_selected == view) return;
         _selected?.SetSelected(false);
         _selected = view;
+        // Focus left in another item's text box would swallow the board shortcuts (P, E, H, Delete)
+        if (Keyboard.FocusedElement is Visual focused && view?.IsAncestorOf(focused) != true)
+            Keyboard.Focus(Board);
         if (view == null) return;
         view.SetSelected(true);
         BringToFront(view);
