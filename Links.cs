@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Globalization;
+using System.IO;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
@@ -14,6 +15,7 @@ using System.Windows.Controls.Primitives;
 using System.Windows.Documents;
 using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Media.Imaging;
 
 namespace StickerBoard;
 
@@ -73,23 +75,121 @@ public static class Links
         return s + rest;
     }
 
-    // ---------- Page titles ----------
+    // ---------- Page titles and site icons ----------
 
-    public static async Task<string?> FetchTitleAsync(Uri uri)
+    const int IconPixels = 64;
+
+    public record PageInfo(string? Title, BitmapSource? Icon);
+
+    public static async Task<PageInfo> FetchPageAsync(Uri uri, bool wantTitle, bool wantIcon)
     {
-        if (uri.Scheme is not ("http" or "https")) return null;
+        if (uri.Scheme is not ("http" or "https")) return new(null, null);
+        string? html = null;
+        var baseUri = uri;
         try
         {
             using var resp = await Http.GetAsync(uri, HttpCompletionOption.ResponseHeadersRead);
-            if (!resp.IsSuccessStatusCode) return null;
+            baseUri = resp.RequestMessage?.RequestUri ?? uri; // after redirects
             var type = resp.Content.Headers.ContentType;
-            if (type?.MediaType is string mt && !mt.Contains("html")) return null;
+            if (resp.IsSuccessStatusCode && (type?.MediaType is not string mt || mt.Contains("html")))
+            {
+                var (buf, n) = await ReadLimited(resp, 512 * 1024);
+                html = DecodeHtml(buf, n, type?.CharSet);
+            }
+        }
+        catch { }
 
-            await using var stream = await resp.Content.ReadAsStreamAsync();
-            var buf = new byte[512 * 1024];
-            int n = 0, read;
-            while (n < buf.Length && (read = await stream.ReadAsync(buf.AsMemory(n))) > 0) n += read;
-            return ParseTitle(DecodeHtml(buf, n, type?.CharSet));
+        var title = wantTitle && html != null ? ParseTitle(html) : null;
+        BitmapSource? icon = null;
+        if (wantIcon)
+            foreach (var candidate in IconCandidates(html, baseUri))
+                if ((icon = await FetchIconAsync(candidate)) != null) break;
+        return new(title, icon);
+    }
+
+    static async Task<(byte[] Buffer, int Length)> ReadLimited(HttpResponseMessage resp, int limit)
+    {
+        await using var stream = await resp.Content.ReadAsStreamAsync();
+        var buf = new byte[limit];
+        int n = 0, read;
+        while (n < buf.Length && (read = await stream.ReadAsync(buf.AsMemory(n))) > 0) n += read;
+        return (buf, n);
+    }
+
+    /// <summary>Icons declared by the page, best size for a small tile first, then /favicon.ico</summary>
+    static List<Uri> IconCandidates(string? html, Uri baseUri)
+    {
+        var found = new List<(Uri Uri, int Rank)>();
+        if (html != null)
+        {
+            foreach (Match tag in Regex.Matches(html, @"<link\b[^>]*>", RegexOptions.IgnoreCase))
+            {
+                var rel = Attr(tag.Value, "rel")?.ToLowerInvariant();
+                if (rel == null || !rel.Split(' ').Any(r => r is "icon" or "apple-touch-icon" or "apple-touch-icon-precomposed")) continue;
+                var href = Attr(tag.Value, "href");
+                if (string.IsNullOrWhiteSpace(href)) continue;
+                if (Attr(tag.Value, "type")?.Contains("svg") == true || href.Split('?')[0].EndsWith(".svg", StringComparison.OrdinalIgnoreCase))
+                    continue; // WPF cannot draw SVG
+                if (!Uri.TryCreate(baseUri, href.Trim(), out var icon)) continue;
+
+                int size = 0;
+                foreach (Match s in Regex.Matches(Attr(tag.Value, "sizes") ?? "", @"(\d+)x\d+"))
+                    size = Math.Max(size, int.Parse(s.Groups[1].Value));
+                if (size == 0 && rel.Contains("apple-touch-icon")) size = 180;
+                // Smallest icon of at least 32px first, unknown sizes next, then smaller ones
+                int rank = size == 0 ? 64 : size >= 32 ? size : 10000 - size;
+                found.Add((icon, rank));
+            }
+        }
+        var result = found.OrderBy(f => f.Rank).Select(f => f.Uri).Distinct().ToList();
+        var fallback = new Uri(baseUri, "/favicon.ico");
+        if (!result.Contains(fallback)) result.Add(fallback);
+        return result;
+    }
+
+    static string? Attr(string tag, string name)
+    {
+        var m = Regex.Match(tag, $@"\b{name}\s*=\s*(?:""([^""]*)""|'([^']*)'|([^\s>]+))", RegexOptions.IgnoreCase);
+        if (!m.Success) return null;
+        return WebUtility.HtmlDecode(m.Groups[1].Success ? m.Groups[1].Value : m.Groups[2].Success ? m.Groups[2].Value : m.Groups[3].Value);
+    }
+
+    static async Task<BitmapSource?> FetchIconAsync(Uri uri)
+    {
+        try
+        {
+            byte[] bytes;
+            if (uri.Scheme == "data")
+            {
+                var m = Regex.Match(uri.OriginalString, @"^data:image/[\w.+-]+;base64,(.+)$", RegexOptions.Singleline);
+                if (!m.Success) return null;
+                bytes = Convert.FromBase64String(m.Groups[1].Value);
+            }
+            else if (uri.Scheme is "http" or "https")
+            {
+                using var resp = await Http.GetAsync(uri, HttpCompletionOption.ResponseHeadersRead);
+                if (!resp.IsSuccessStatusCode) return null;
+                var (buf, n) = await ReadLimited(resp, 1024 * 1024);
+                bytes = buf[..n];
+            }
+            else return null;
+            return DecodeIcon(bytes);
+        }
+        catch { return null; }
+    }
+
+    /// <summary>The largest frame (an .ico holds several sizes), scaled down to at most IconPixels</summary>
+    static BitmapSource? DecodeIcon(byte[] bytes)
+    {
+        try
+        {
+            var dec = BitmapDecoder.Create(new MemoryStream(bytes), BitmapCreateOptions.PreservePixelFormat, BitmapCacheOption.OnLoad);
+            BitmapSource frame = dec.Frames.OrderByDescending(f => f.PixelWidth).First();
+            if (frame.PixelWidth < 8 || frame.PixelHeight < 8) return null;
+            double scale = Math.Min(1.0, (double)IconPixels / Math.Max(frame.PixelWidth, frame.PixelHeight));
+            if (scale < 1) frame = new TransformedBitmap(frame, new ScaleTransform(scale, scale));
+            frame.Freeze();
+            return frame;
         }
         catch { return null; }
     }

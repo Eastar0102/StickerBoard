@@ -17,7 +17,7 @@ then leave it floating on your wallpaper like a sticky note.
 
 - **Images** — paste with `Ctrl+V` (screenshots, browser images, copied files) or drag & drop files. Resize from the corner handle or with the mouse wheel.
 - **Notes** — double-click empty space. Bold, italic, underline, strikethrough, text color, highlight, per-selection font size, fonts, bullets and **checklists**.
-- **Links** — paste or drop a web address on the board to get a link card with the page title (double-click opens it). In notes, addresses become links as you type, and `Ctrl+K` links the selected text.
+- **Links** — paste or drop a web address on the board to get a link card with the site icon and page title (double-click opens it). In notes, addresses become links as you type, and `Ctrl+K` links the selected text.
 - **Text-only notes** — no paper, just text with a soft outline that stays readable on any wallpaper.
 - **Pen** — draw and highlight over anything, with undo.
 - **Lives on your desktop** — background opacity slider (fully transparent works), always on top / normal / behind other windows, lock position & size, maximize, fit window to content.

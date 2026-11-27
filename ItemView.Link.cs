@@ -3,12 +3,14 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Media.Imaging;
 
 namespace StickerBoard;
 
-/// <summary>Link stickers: a card with the page title and address; double-click opens it</summary>
+/// <summary>Link stickers: a card with the site icon, page title and address; double-click opens it</summary>
 public sealed partial class ItemView
 {
+    Border? _linkIcon;
     TextBlock? _linkTitle;
     TextBlock? _linkAddress;
 
@@ -16,11 +18,9 @@ public sealed partial class ItemView
 
     void BuildLink()
     {
-        var glyph = new TextBlock
+        _linkIcon = new Border
         {
-            Text = "", // globe
-            FontFamily = new FontFamily("Segoe MDL2 Assets"), FontSize = 18,
-            Foreground = new SolidColorBrush(Color.FromRgb(0x6F, 0xB0, 0xFF)),
+            Width = 26, Height = 26, CornerRadius = new CornerRadius(5),
             VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 10, 0),
         };
         _linkTitle = new TextBlock
@@ -45,8 +45,8 @@ public sealed partial class ItemView
         text.Children.Add(_linkAddress);
 
         var dock = new DockPanel { LastChildFill = true };
-        DockPanel.SetDock(glyph, Dock.Left);
-        dock.Children.Add(glyph);
+        DockPanel.SetDock(_linkIcon, Dock.Left);
+        dock.Children.Add(_linkIcon);
         dock.Children.Add(text);
 
         var card = new Border
@@ -69,7 +69,33 @@ public sealed partial class ItemView
         Children.Add(card);
 
         UpdateLinkText();
-        if (Item.Text == null) _ = LoadLinkTitle();
+        var icon = Item.Image != null ? Storage.LoadImage(Item.Image) : null;
+        if (icon == null) Item.Image = null;
+        ShowLinkIcon(icon);
+        // A title of null was never fetched; a missing icon is retried on each start
+        if (Item.Text == null || Item.Image == null) _ = LoadLinkInfo();
+    }
+
+    /// <summary>The site icon on a light tile (so dark icons stay visible), or a globe when there is none</summary>
+    void ShowLinkIcon(BitmapSource? icon)
+    {
+        if (_linkIcon == null) return;
+        if (icon == null)
+        {
+            _linkIcon.Background = null;
+            _linkIcon.Child = new TextBlock
+            {
+                Text = "", // globe
+                FontFamily = new FontFamily("Segoe MDL2 Assets"), FontSize = 18,
+                Foreground = new SolidColorBrush(Color.FromRgb(0x6F, 0xB0, 0xFF)),
+                HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center,
+            };
+            return;
+        }
+        var img = new Image { Source = icon, Width = 18, Height = 18, Stretch = Stretch.Uniform };
+        RenderOptions.SetBitmapScalingMode(img, BitmapScalingMode.HighQuality);
+        _linkIcon.Background = new SolidColorBrush(Color.FromArgb(0xF2, 0xFF, 0xFF, 0xFF));
+        _linkIcon.Child = img;
     }
 
     void UpdateLinkText()
@@ -83,13 +109,24 @@ public sealed partial class ItemView
         ToolTip = (uri?.AbsoluteUri ?? Item.Url) + "\n" + L.T("link.doubleClick");
     }
 
-    async System.Threading.Tasks.Task LoadLinkTitle()
+    async System.Threading.Tasks.Task LoadLinkInfo()
     {
         if (LinkUri is not Uri uri) return;
-        var title = await Links.FetchTitleAsync(uri);
-        if (title == null || Item.Text != null) return;
-        Item.Text = title;
-        UpdateLinkText();
+        var info = await Links.FetchPageAsync(uri, wantTitle: Item.Text == null, wantIcon: Item.Image == null);
+        if (info.Title != null && Item.Text == null)
+        {
+            Item.Text = info.Title;
+            UpdateLinkText();
+        }
+        if (info.Icon != null && Item.Image == null)
+        {
+            try
+            {
+                Item.Image = Storage.SaveImage(info.Icon);
+                ShowLinkIcon(info.Icon);
+            }
+            catch (Exception ex) { App.Log(ex); }
+        }
         _owner.ScheduleSave();
     }
 
